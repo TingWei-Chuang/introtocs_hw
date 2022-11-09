@@ -67,10 +67,11 @@ class Crawler(object):
                 last_date = date_obj
             if (date_obj < start_date or date_obj > end_date):
                 continue
+            date = datetime.strftime(date_obj, "%Y-%m-%d")
                 
             url = self.base_url + rel_url
             content = self.crawl_content(url)
-            contents.append([date_obj, title, content])
+            contents.append([date, title, content])
         return contents, last_date
 
     def crawl_content(self, url):
