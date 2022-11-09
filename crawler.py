@@ -1,6 +1,7 @@
-
-
-
+import requests
+from lxml import etree
+from datetime import datetime
+from time import sleep
 class Crawler(object):
     def __init__(self,
                  base_url='https://www.csie.ntu.edu.tw/news/',
@@ -15,7 +16,7 @@ class Crawler(object):
         2. It is welcome to modify TA's template.
         """
 
-        contents = list()
+        contents = []
         page_num = 0
         while True:
             rets, last_date = self.crawl_page(
@@ -25,6 +26,7 @@ class Crawler(object):
                 contents += rets
             if last_date < start_date:
                 break
+        contents = sorted(contents)
         return contents
 
     def crawl_page(self, start_date, end_date, page=''):
@@ -46,13 +48,29 @@ class Crawler(object):
         ).content.decode()
         sleep(0.1)
         # TODO: parse the response and get dates, titles and relative url with etree
-        contents = list()
-        for rel_url in rel_urls:
+        root = etree.HTML(res)
+        
+        dates = root.xpath("/html/body/div[1]/div/div[2]/div/div/div[2]/div/table/tbody/tr/td[1]/text()")
+        titles = root.xpath("/html/body/div[1]/div/div[2]/div/div/div[2]/div/table/tbody/tr/td[2]/a/text()")
+        rel_urls = root.xpath("/html/body/div[1]/div/div[2]/div/div/div[2]/div/table/tbody/tr/td[2]/a/@href")
+        
+        contents = []
+        last_date = datetime(2050, 1, 1)
+        for date, title, rel_url in zip(dates, titles, rel_urls):
             # TODO: 1. concatenate relative url to full url
             #       2. for each url call self.crawl_content
             #          to crawl the content
             #       3. append the date, title and content to
             #          contents
+            date_obj = datetime.strptime(date, "%Y-%m-%d")
+            if (date_obj < last_date):
+                last_date = date_obj
+            if (date_obj < start_date or date_obj > end_date):
+                continue
+                
+            url = self.base_url + rel_url
+            content = self.crawl_content(url)
+            contents.append([date_obj, title, content])
         return contents, last_date
 
     def crawl_content(self, url):
@@ -63,4 +81,9 @@ class Crawler(object):
         then you are to crawl contents of
         ``Title : 我與DeepMind的A.I.研究之路, My A.I. Journey with DeepMind Date : 2019-12-27 2:20pm-3:30pm Location : R103, CSIE Speaker : 黃士傑博士, DeepMind Hosted by : Prof. Shou-De Lin Abstract: 我將與同學們分享，我博士班研究到加入DeepMind所參與的projects (AlphaGo, AlphaStar與AlphaZero)，以及從我個人與DeepMind的視角對未來AI發展的展望。 Biography: 黃士傑, Aja Huang 台灣人，國立臺灣師範大學資訊工程研究所博士，現為DeepMind Staff Research Scientist。``
         """
-        raise NotImplementedError
+        res = requests.get(url).content.decode()
+        sleep(0.1)
+        root = etree.HTML(res)
+        content_obj = root.xpath("/html/body/div[1]/div/div[2]/div/div/div[2]/div/div[@class=\"editor content\"]")
+        content = "".join(content_obj[0].itertext())
+        return content
